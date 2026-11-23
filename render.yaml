@@ -1,0 +1,9 @@
+services:
+  - type: web
+    name: mediatool
+    runtime: docker
+    plan: free
+    region: singapore
+    envVars:
+      - key: IS_CLOUD
+        value: "true"
