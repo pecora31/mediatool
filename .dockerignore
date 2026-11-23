@@ -1,0 +1,11 @@
+__pycache__/
+*.py[cod]
+*$py.class
+downloads/*
+!downloads/.gitkeep
+config.json
+.git
+.gitignore
+run.bat
+run.vbs
+stop.bat

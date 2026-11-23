@@ -1,0 +1,793 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Mediatool</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap');
+    body {
+      font-family: 'Plus Jakarta Sans', sans-serif;
+    }
+    input[type=range] {
+      accent-color: #ffffff;
+    }
+    .custom-scroll::-webkit-scrollbar {
+      width: 6px;
+    }
+    .custom-scroll::-webkit-scrollbar-track {
+      background: transparent !important;
+      margin-top: 8px;
+      margin-bottom: 8px;
+    }
+    .custom-scroll::-webkit-scrollbar-thumb {
+      background-color: #2e2e2e;
+      border-radius: 9999px;
+    }
+    .custom-scroll::-webkit-scrollbar-thumb:hover {
+      background-color: #404040;
+    }
+  </style>
+</head>
+<body class="bg-neutral-950 text-neutral-100 min-h-screen flex flex-col p-6 sm:p-12 antialiased selection:bg-white selection:text-black">
+  <div class="max-w-3xl w-full mx-auto space-y-8">
+
+    <!-- Navigation Tabs -->
+    <nav class="flex border-b border-neutral-800 space-x-8 text-base">
+      <button
+        id="tab-btn-downloader"
+        onclick="switchTab('downloader')"
+        class="tab-btn pb-4 text-white border-b-2 border-white font-semibold transition"
+      >
+        Download
+      </button>
+      <button
+        id="tab-btn-converter"
+        onclick="switchTab('converter')"
+        class="tab-btn pb-4 text-neutral-500 hover:text-neutral-300 font-semibold transition"
+      >
+        Convert
+      </button>
+    </nav>
+
+    <!-- Save Location Bar (Hidden automatically when deployed on Cloud) -->
+    <div id="save-location-bar" class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 p-4 sm:p-5 bg-neutral-900 border border-neutral-800 rounded-2xl">
+      <div class="flex-1 min-w-0 w-full">
+        <label class="text-xs uppercase tracking-wider text-neutral-400 font-semibold block mb-1.5">Save Location</label>
+        <input
+          type="text"
+          id="save-path-input"
+          class="w-full bg-neutral-950 border border-neutral-800 focus:border-neutral-500 rounded-xl px-4 py-2.5 text-xs sm:text-sm font-mono text-white outline-none truncate transition"
+          onchange="savePathDirectly(this.value)"
+        />
+      </div>
+      <button
+        type="button"
+        id="browse-btn"
+        onclick="browseFolder()"
+        class="shrink-0 w-full sm:w-auto sm:self-end h-11 px-5 rounded-xl border border-neutral-700 bg-neutral-950 hover:border-neutral-400 text-xs sm:text-sm font-semibold text-white transition text-center"
+      >
+        Change Folder
+      </button>
+    </div>
+
+    <!-- TAB 1: DOWNLOADER -->
+    <section id="tab-downloader" class="space-y-6">
+      <form onsubmit="handleFetch(event)" class="flex flex-col sm:flex-row gap-3">
+        <input
+          type="text"
+          id="url-input"
+          placeholder="Paste video URL"
+          class="flex-1 bg-neutral-900 border border-neutral-800 focus:border-neutral-500 rounded-xl px-5 py-4 text-base text-white placeholder-neutral-500 outline-none transition"
+          required
+        />
+        <button
+          type="submit"
+          id="fetch-btn"
+          class="bg-white text-black px-8 py-4 rounded-xl text-base font-semibold hover:bg-neutral-200 active:scale-[0.99] transition disabled:opacity-50 shrink-0"
+        >
+          Fetch
+        </button>
+      </form>
+
+      <div id="fetch-error" class="text-sm text-neutral-400 hidden p-4 bg-neutral-900 border border-neutral-800 rounded-xl"></div>
+
+      <!-- Result Card -->
+      <div id="video-card" class="border border-neutral-800 bg-neutral-900 rounded-2xl p-6 sm:p-8 space-y-6 hidden">
+        <div>
+          <div id="video-title" class="text-lg sm:text-xl font-semibold text-white leading-snug"></div>
+          <div id="video-uploader" class="text-sm text-neutral-400 mt-1"></div>
+        </div>
+
+        <!-- Format Selector -->
+        <div class="space-y-2">
+          <label class="text-xs uppercase tracking-wider text-neutral-400 font-semibold">Format</label>
+          <div class="grid grid-cols-2 gap-3">
+            <button
+              type="button"
+              id="type-video"
+              onclick="setType('video')"
+              class="py-3.5 px-4 rounded-xl text-sm font-semibold border border-white bg-white text-black transition text-center"
+            >
+              Video (MP4)
+            </button>
+            <button
+              type="button"
+              id="type-audio"
+              onclick="setType('audio')"
+              class="py-3.5 px-4 rounded-xl text-sm font-semibold border border-neutral-800 bg-neutral-950 text-neutral-400 hover:text-white hover:border-neutral-700 transition text-center"
+            >
+              Audio (MP3 320k)
+            </button>
+          </div>
+        </div>
+
+        <!-- Custom Dropdown: Resolution -->
+        <div id="res-group" class="space-y-2">
+          <label class="text-xs uppercase tracking-wider text-neutral-400 font-semibold">Resolution</label>
+          <div class="relative custom-dropdown" id="dd-video-res">
+            <button
+              type="button"
+              class="dropdown-trigger w-full bg-neutral-950 border border-neutral-800 hover:border-neutral-700 focus:border-neutral-500 rounded-xl px-4 py-3.5 text-sm text-white flex items-center justify-between outline-none transition cursor-pointer"
+              onclick="toggleDropdown('dd-video-res')"
+            >
+              <span class="dropdown-label truncate">Best Available</span>
+              <span class="text-neutral-500 text-xs ml-2 select-none">▾</span>
+            </button>
+            <div class="dropdown-menu hidden absolute left-0 right-0 top-full mt-2 bg-neutral-900 border border-neutral-800 rounded-2xl shadow-2xl z-50 overflow-hidden">
+              <div class="dropdown-list max-h-60 overflow-y-auto custom-scroll p-1.5 space-y-0.5">
+                <div class="dropdown-item px-3.5 py-2.5 rounded-lg text-sm text-white bg-neutral-800 cursor-pointer" data-value="best" onclick="selectOption('dd-video-res', 'best', 'Best Available')">
+                  Best Available
+                </div>
+              </div>
+            </div>
+            <input type="hidden" id="video-res" value="best">
+          </div>
+        </div>
+
+        <!-- Action Button -->
+        <div>
+          <button
+            type="button"
+            id="dl-btn"
+            onclick="startDownload()"
+            class="w-full bg-white text-black py-4 rounded-xl text-base font-semibold hover:bg-neutral-200 active:scale-[0.99] transition disabled:opacity-50"
+          >
+            Start Download
+          </button>
+        </div>
+
+        <!-- Progress Bar -->
+        <div id="dl-progress" class="space-y-2 hidden pt-2">
+          <div class="flex justify-between text-sm text-neutral-300">
+            <span id="dl-status">Processing...</span>
+            <span id="dl-percent" class="font-mono font-semibold">0%</span>
+          </div>
+          <div class="w-full bg-neutral-800 h-2 rounded-full overflow-hidden">
+            <div id="dl-bar" class="bg-white h-2 w-0 transition-all duration-200"></div>
+          </div>
+        </div>
+
+        <!-- Completed Actions -->
+        <div id="dl-ready" class="pt-4 border-t border-neutral-800 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 hidden">
+          <div>
+            <div id="dl-ready-label" class="text-xs text-neutral-400">Download complete:</div>
+            <div id="dl-name" class="text-sm font-semibold text-white truncate max-w-sm mt-0.5"></div>
+          </div>
+          <div class="flex items-center gap-3 w-full sm:w-auto">
+            <!-- Local buttons -->
+            <button
+              type="button"
+              id="local-open-file-btn"
+              onclick="openCurrentFile()"
+              class="flex-1 sm:flex-none bg-white text-black hover:bg-neutral-200 px-6 py-3.5 rounded-xl text-sm font-semibold transition text-center"
+            >
+              Open File
+            </button>
+            <button
+              type="button"
+              id="local-open-folder-btn"
+              onclick="openFolder(true)"
+              class="flex-1 sm:flex-none border border-neutral-700 bg-neutral-950 hover:border-neutral-400 text-neutral-300 hover:text-white px-5 py-3.5 rounded-xl text-sm font-semibold transition text-center"
+            >
+              Open Folder
+            </button>
+
+            <!-- Cloud direct download button -->
+            <a
+              id="cloud-download-btn"
+              href="#"
+              download
+              class="hidden flex-1 sm:flex-none bg-white text-black hover:bg-neutral-200 px-6 py-3.5 rounded-xl text-sm font-semibold transition text-center"
+            >
+              Download to Device
+            </a>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- TAB 2: CONVERTER -->
+    <section id="tab-converter" class="space-y-6 hidden">
+      <!-- Big Dropzone -->
+      <div
+        id="dropzone"
+        ondragover="onDrag(event, true)"
+        ondragleave="onDrag(event, false)"
+        ondrop="onDrop(event)"
+        onclick="document.getElementById('file-input').click()"
+        class="border-2 border-dashed border-neutral-800 hover:border-neutral-600 rounded-2xl p-10 sm:p-14 text-center cursor-pointer bg-neutral-900 hover:bg-neutral-900/80 transition"
+      >
+        <input type="file" id="file-input" multiple onchange="onSelectFiles(event)" class="hidden">
+        <p class="text-base sm:text-lg font-semibold text-white">Click or drag files here</p>
+        <p class="text-xs sm:text-sm text-neutral-500 mt-2">Images, Audio, or Videos</p>
+      </div>
+
+      <!-- File List & Config -->
+      <div id="files-section" class="border border-neutral-800 bg-neutral-900 rounded-2xl p-6 sm:p-8 space-y-6 hidden">
+        <div class="flex justify-between items-center pb-3 border-b border-neutral-800">
+          <span id="file-count" class="text-sm font-semibold text-neutral-300">0 files</span>
+          <button onclick="clearFiles()" class="text-xs text-neutral-400 hover:text-white transition">Clear all</button>
+        </div>
+
+        <div id="file-list" class="space-y-2 max-h-60 overflow-y-auto pr-1"></div>
+
+        <!-- Target Format -->
+        <div class="space-y-4 pt-4 border-t border-neutral-800">
+          <div class="space-y-2">
+            <label class="text-xs uppercase tracking-wider text-neutral-400 font-semibold">Target Format</label>
+            
+            <!-- Custom Dropdown: Target Format -->
+            <div class="relative custom-dropdown" id="dd-target-format">
+              <button
+                type="button"
+                class="dropdown-trigger w-full bg-neutral-950 border border-neutral-800 hover:border-neutral-700 focus:border-neutral-500 rounded-xl px-4 py-3.5 text-sm text-white flex items-center justify-between outline-none transition cursor-pointer"
+                onclick="toggleDropdown('dd-target-format')"
+              >
+                <span class="dropdown-label truncate">WEBP</span>
+                <span class="text-neutral-500 text-xs ml-2 select-none">▾</span>
+              </button>
+              <div class="dropdown-menu hidden absolute left-0 right-0 top-full mt-2 bg-neutral-900 border border-neutral-800 rounded-2xl shadow-2xl z-50 overflow-hidden">
+                <div class="dropdown-list max-h-64 overflow-y-auto custom-scroll p-1.5 space-y-1">
+                  <!-- Group: Images -->
+                  <div class="text-[11px] uppercase tracking-wider text-neutral-500 font-semibold px-3 pt-2 pb-1 select-none">Images</div>
+                  <div class="dropdown-item px-3.5 py-2 rounded-lg text-sm text-white bg-neutral-800 cursor-pointer" data-value="webp" onclick="selectFormatOption('webp', 'WEBP')">WEBP</div>
+                  <div class="dropdown-item px-3.5 py-2 rounded-lg text-sm text-neutral-300 hover:text-white hover:bg-neutral-800 cursor-pointer transition" data-value="png" onclick="selectFormatOption('png', 'PNG')">PNG</div>
+                  <div class="dropdown-item px-3.5 py-2 rounded-lg text-sm text-neutral-300 hover:text-white hover:bg-neutral-800 cursor-pointer transition" data-value="jpg" onclick="selectFormatOption('jpg', 'JPG')">JPG</div>
+                  <div class="dropdown-item px-3.5 py-2 rounded-lg text-sm text-neutral-300 hover:text-white hover:bg-neutral-800 cursor-pointer transition" data-value="ico" onclick="selectFormatOption('ico', 'ICO')">ICO</div>
+                  <div class="dropdown-item px-3.5 py-2 rounded-lg text-sm text-neutral-300 hover:text-white hover:bg-neutral-800 cursor-pointer transition" data-value="bmp" onclick="selectFormatOption('bmp', 'BMP')">BMP</div>
+                  <div class="dropdown-item px-3.5 py-2 rounded-lg text-sm text-neutral-300 hover:text-white hover:bg-neutral-800 cursor-pointer transition" data-value="tiff" onclick="selectFormatOption('tiff', 'TIFF')">TIFF</div>
+
+                  <!-- Group: Audio -->
+                  <div class="text-[11px] uppercase tracking-wider text-neutral-500 font-semibold px-3 pt-3 pb-1 border-t border-neutral-800/80 select-none">Audio</div>
+                  <div class="dropdown-item px-3.5 py-2 rounded-lg text-sm text-neutral-300 hover:text-white hover:bg-neutral-800 cursor-pointer transition" data-value="mp3" onclick="selectFormatOption('mp3', 'MP3')">MP3</div>
+                  <div class="dropdown-item px-3.5 py-2 rounded-lg text-sm text-neutral-300 hover:text-white hover:bg-neutral-800 cursor-pointer transition" data-value="wav" onclick="selectFormatOption('wav', 'WAV')">WAV</div>
+                  <div class="dropdown-item px-3.5 py-2 rounded-lg text-sm text-neutral-300 hover:text-white hover:bg-neutral-800 cursor-pointer transition" data-value="flac" onclick="selectFormatOption('flac', 'FLAC')">FLAC</div>
+                  <div class="dropdown-item px-3.5 py-2 rounded-lg text-sm text-neutral-300 hover:text-white hover:bg-neutral-800 cursor-pointer transition" data-value="aac" onclick="selectFormatOption('aac', 'AAC')">AAC</div>
+                  <div class="dropdown-item px-3.5 py-2 rounded-lg text-sm text-neutral-300 hover:text-white hover:bg-neutral-800 cursor-pointer transition" data-value="ogg" onclick="selectFormatOption('ogg', 'OGG')">OGG</div>
+                  <div class="dropdown-item px-3.5 py-2 rounded-lg text-sm text-neutral-300 hover:text-white hover:bg-neutral-800 cursor-pointer transition" data-value="m4a" onclick="selectFormatOption('m4a', 'M4A')">M4A</div>
+
+                  <!-- Group: Video -->
+                  <div class="text-[11px] uppercase tracking-wider text-neutral-500 font-semibold px-3 pt-3 pb-1 border-t border-neutral-800/80 select-none">Video</div>
+                  <div class="dropdown-item px-3.5 py-2 rounded-lg text-sm text-neutral-300 hover:text-white hover:bg-neutral-800 cursor-pointer transition" data-value="mp4" onclick="selectFormatOption('mp4', 'MP4')">MP4</div>
+                  <div class="dropdown-item px-3.5 py-2 rounded-lg text-sm text-neutral-300 hover:text-white hover:bg-neutral-800 cursor-pointer transition" data-value="gif" onclick="selectFormatOption('gif', 'GIF')">GIF</div>
+                  <div class="dropdown-item px-3.5 py-2 rounded-lg text-sm text-neutral-300 hover:text-white hover:bg-neutral-800 cursor-pointer transition" data-value="webm" onclick="selectFormatOption('webm', 'WEBM')">WEBM</div>
+                  <div class="dropdown-item px-3.5 py-2 rounded-lg text-sm text-neutral-300 hover:text-white hover:bg-neutral-800 cursor-pointer transition" data-value="mkv" onclick="selectFormatOption('mkv', 'MKV')">MKV</div>
+                  <div class="dropdown-item px-3.5 py-2 rounded-lg text-sm text-neutral-300 hover:text-white hover:bg-neutral-800 cursor-pointer transition" data-value="avi" onclick="selectFormatOption('avi', 'AVI')">AVI</div>
+                  <div class="dropdown-item px-3.5 py-2 rounded-lg text-sm text-neutral-300 hover:text-white hover:bg-neutral-800 cursor-pointer transition" data-value="mov" onclick="selectFormatOption('mov', 'MOV')">MOV</div>
+                </div>
+              </div>
+              <input type="hidden" id="target-format" value="webp">
+            </div>
+          </div>
+
+          <!-- Quality for images -->
+          <div id="opt-quality" class="space-y-2">
+            <div class="flex justify-between text-xs uppercase tracking-wider text-neutral-400 font-semibold">
+              <span>Quality</span>
+              <span id="quality-num" class="font-mono text-white text-sm">90%</span>
+            </div>
+            <input
+              type="range"
+              id="input-quality"
+              min="10"
+              max="100"
+              value="90"
+              oninput="document.getElementById('quality-num').innerText = this.value + '%'"
+              class="w-full h-2 bg-neutral-800 rounded-lg cursor-pointer"
+            >
+          </div>
+
+          <!-- Custom Dropdown: Audio Bitrate -->
+          <div id="opt-bitrate" class="space-y-2 hidden">
+            <label class="text-xs uppercase tracking-wider text-neutral-400 font-semibold">Bitrate</label>
+            <div class="relative custom-dropdown" id="dd-audio-bitrate">
+              <button
+                type="button"
+                class="dropdown-trigger w-full bg-neutral-950 border border-neutral-800 hover:border-neutral-700 focus:border-neutral-500 rounded-xl px-4 py-3.5 text-sm text-white flex items-center justify-between outline-none transition cursor-pointer"
+                onclick="toggleDropdown('dd-audio-bitrate')"
+              >
+                <span class="dropdown-label truncate">320 kbps</span>
+                <span class="text-neutral-500 text-xs ml-2 select-none">▾</span>
+              </button>
+              <div class="dropdown-menu hidden absolute left-0 right-0 top-full mt-2 bg-neutral-900 border border-neutral-800 rounded-2xl shadow-2xl z-50 overflow-hidden">
+                <div class="dropdown-list max-h-60 overflow-y-auto custom-scroll p-1.5 space-y-0.5">
+                  <div class="dropdown-item px-3.5 py-2.5 rounded-lg text-sm text-white bg-neutral-800 cursor-pointer" data-value="320k" onclick="selectOption('dd-audio-bitrate', '320k', '320 kbps')">320 kbps</div>
+                  <div class="dropdown-item px-3.5 py-2.5 rounded-lg text-sm text-neutral-300 hover:text-white hover:bg-neutral-800 cursor-pointer transition" data-value="256k" onclick="selectOption('dd-audio-bitrate', '256k', '256 kbps')">256 kbps</div>
+                  <div class="dropdown-item px-3.5 py-2.5 rounded-lg text-sm text-neutral-300 hover:text-white hover:bg-neutral-800 cursor-pointer transition" data-value="192k" onclick="selectOption('dd-audio-bitrate', '192k', '192 kbps')">192 kbps</div>
+                  <div class="dropdown-item px-3.5 py-2.5 rounded-lg text-sm text-neutral-300 hover:text-white hover:bg-neutral-800 cursor-pointer transition" data-value="128k" onclick="selectOption('dd-audio-bitrate', '128k', '128 kbps')">128 kbps</div>
+                </div>
+              </div>
+              <input type="hidden" id="input-bitrate" value="320k">
+            </div>
+          </div>
+
+          <!-- Custom Dropdown: Video Resolution -->
+          <div id="opt-res" class="space-y-2 hidden">
+            <label class="text-xs uppercase tracking-wider text-neutral-400 font-semibold">Resolution</label>
+            <div class="relative custom-dropdown" id="dd-video-scale">
+              <button
+                type="button"
+                class="dropdown-trigger w-full bg-neutral-950 border border-neutral-800 hover:border-neutral-700 focus:border-neutral-500 rounded-xl px-4 py-3.5 text-sm text-white flex items-center justify-between outline-none transition cursor-pointer"
+                onclick="toggleDropdown('dd-video-scale')"
+              >
+                <span class="dropdown-label truncate">Original</span>
+                <span class="text-neutral-500 text-xs ml-2 select-none">▾</span>
+              </button>
+              <div class="dropdown-menu hidden absolute left-0 right-0 top-full mt-2 bg-neutral-900 border border-neutral-800 rounded-2xl shadow-2xl z-50 overflow-hidden">
+                <div class="dropdown-list max-h-60 overflow-y-auto custom-scroll p-1.5 space-y-0.5">
+                  <div class="dropdown-item px-3.5 py-2.5 rounded-lg text-sm text-white bg-neutral-800 cursor-pointer" data-value="original" onclick="selectOption('dd-video-scale', 'original', 'Original')">Original</div>
+                  <div class="dropdown-item px-3.5 py-2.5 rounded-lg text-sm text-neutral-300 hover:text-white hover:bg-neutral-800 cursor-pointer transition" data-value="1080p" onclick="selectOption('dd-video-scale', '1080p', '1080p')">1080p</div>
+                  <div class="dropdown-item px-3.5 py-2.5 rounded-lg text-sm text-neutral-300 hover:text-white hover:bg-neutral-800 cursor-pointer transition" data-value="720p" onclick="selectOption('dd-video-scale', '720p', '720p')">720p</div>
+                  <div class="dropdown-item px-3.5 py-2.5 rounded-lg text-sm text-neutral-300 hover:text-white hover:bg-neutral-800 cursor-pointer transition" data-value="480p" onclick="selectOption('dd-video-scale', '480p', '480p')">480p</div>
+                </div>
+              </div>
+              <input type="hidden" id="input-res" value="original">
+            </div>
+          </div>
+
+          <!-- Convert Button -->
+          <div class="pt-2">
+            <button
+              type="button"
+              id="convert-btn"
+              onclick="startConvert()"
+              class="w-full bg-white text-black py-4 rounded-xl text-base font-semibold hover:bg-neutral-200 active:scale-[0.99] transition disabled:opacity-50"
+            >
+              Start Conversion
+            </button>
+          </div>
+
+          <!-- Ready Actions -->
+          <div id="convert-ready" class="pt-4 border-t border-neutral-800 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 hidden">
+            <div>
+              <div id="convert-ready-label" class="text-xs text-neutral-400">Conversion complete:</div>
+              <div id="convert-desc" class="text-sm font-semibold text-white truncate max-w-sm mt-0.5"></div>
+            </div>
+            <div class="flex items-center gap-3 w-full sm:w-auto">
+              <!-- Local folder button -->
+              <button
+                type="button"
+                id="local-convert-folder-btn"
+                onclick="openFolder(false)"
+                class="bg-white text-black hover:bg-neutral-200 px-6 py-3.5 rounded-xl text-sm font-semibold transition text-center"
+              >
+                Open Folder
+              </button>
+              <!-- Cloud direct download button -->
+              <a
+                id="convert-cloud-dl-btn"
+                href="#"
+                download
+                class="hidden bg-white text-black hover:bg-neutral-200 px-6 py-3.5 rounded-xl text-sm font-semibold transition text-center"
+              >
+                Download to Device
+              </a>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+  </div>
+
+  <script>
+    let downloadType = 'video';
+    let pollTimer = null;
+    let files = [];
+    let currentTaskId = null;
+    let isCloud = false;
+
+    // Custom Dropdown Controller
+    function toggleDropdown(dropdownId) {
+      const container = document.getElementById(dropdownId);
+      const menu = container.querySelector('.dropdown-menu');
+      const isCurrentlyOpen = !menu.classList.contains('hidden');
+
+      closeAllDropdowns();
+
+      if (!isCurrentlyOpen) {
+        menu.classList.remove('hidden');
+      }
+    }
+
+    function closeAllDropdowns() {
+      document.querySelectorAll('.dropdown-menu').forEach(menu => {
+        menu.classList.add('hidden');
+      });
+    }
+
+    document.addEventListener('click', (e) => {
+      if (!e.target.closest('.custom-dropdown')) {
+        closeAllDropdowns();
+      }
+    });
+
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape') closeAllDropdowns();
+    });
+
+    function selectOption(dropdownId, value, labelText) {
+      const container = document.getElementById(dropdownId);
+      const triggerLabel = container.querySelector('.dropdown-label');
+      const hiddenInput = container.querySelector('input[type="hidden"]');
+      
+      triggerLabel.innerText = labelText;
+      hiddenInput.value = value;
+
+      container.querySelectorAll('.dropdown-item').forEach(item => {
+        if (item.getAttribute('data-value') === value) {
+          item.className = "dropdown-item px-3.5 py-2.5 rounded-lg text-sm text-white bg-neutral-800 cursor-pointer";
+        } else {
+          item.className = "dropdown-item px-3.5 py-2.5 rounded-lg text-sm text-neutral-300 hover:text-white hover:bg-neutral-800 cursor-pointer transition";
+        }
+      });
+
+      closeAllDropdowns();
+    }
+
+    function selectFormatOption(value, labelText) {
+      selectOption('dd-target-format', value, labelText);
+      onFormatChange();
+    }
+
+    function updateResolutionDropdown(resolutions) {
+      const container = document.getElementById('dd-video-res');
+      const list = container.querySelector('.dropdown-list') || container.querySelector('.dropdown-menu');
+      const triggerLabel = container.querySelector('.dropdown-label');
+      const hiddenInput = document.getElementById('video-res');
+
+      hiddenInput.value = 'best';
+      triggerLabel.innerText = 'Best Available';
+
+      let html = `
+        <div class="dropdown-item px-3.5 py-2.5 rounded-lg text-sm text-white bg-neutral-800 cursor-pointer" data-value="best" onclick="selectOption('dd-video-res', 'best', 'Best Available')">
+          Best Available
+        </div>
+      `;
+
+      if (resolutions && resolutions.length > 0) {
+        resolutions.forEach(res => {
+          html += `
+            <div class="dropdown-item px-3.5 py-2.5 rounded-lg text-sm text-neutral-300 hover:text-white hover:bg-neutral-800 cursor-pointer transition" data-value="${res}" onclick="selectOption('dd-video-res', '${res}', '${res}p')">
+              ${res}p
+            </div>
+          `;
+        });
+      }
+
+      list.innerHTML = html;
+    }
+
+    window.addEventListener('DOMContentLoaded', async () => {
+      try {
+        const res = await fetch('/api/config');
+        const data = await res.json();
+        isCloud = !!data.is_cloud;
+
+        if (isCloud) {
+          // In Cloud mode: hide local folder controls, adapt to device downloads
+          document.getElementById('save-location-bar').classList.add('hidden');
+          document.getElementById('local-open-file-btn').classList.add('hidden');
+          document.getElementById('local-open-folder-btn').classList.add('hidden');
+          document.getElementById('local-convert-folder-btn').classList.add('hidden');
+          document.getElementById('cloud-download-btn').classList.remove('hidden');
+          document.getElementById('convert-cloud-dl-btn').classList.remove('hidden');
+        } else {
+          if (data.download_dir) {
+            document.getElementById('save-path-input').value = data.download_dir;
+          }
+        }
+      } catch (e) {
+        console.error(e);
+      }
+    });
+
+    async function browseFolder() {
+      const btn = document.getElementById('browse-btn');
+      btn.disabled = true;
+      btn.innerText = '...';
+      try {
+        const res = await fetch('/api/pick-folder', { method: 'POST' });
+        const data = await res.json();
+        if (data.download_dir) {
+          document.getElementById('save-path-input').value = data.download_dir;
+        }
+      } catch (e) {
+        console.error(e);
+      } finally {
+        btn.disabled = false;
+        btn.innerText = 'Change Folder';
+      }
+    }
+
+    async function savePathDirectly(val) {
+      if (!val || !val.trim()) return;
+      try {
+        const res = await fetch('/api/config', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ download_dir: val.trim() })
+        });
+        const data = await res.json();
+        if (data.download_dir) {
+          document.getElementById('save-path-input').value = data.download_dir;
+        }
+      } catch (e) {
+        alert('Invalid folder path');
+      }
+    }
+
+    function switchTab(name) {
+      document.querySelectorAll('.tab-btn').forEach(btn => {
+        btn.classList.remove('text-white', 'border-b-2', 'border-white');
+        btn.classList.add('text-neutral-500');
+      });
+      document.getElementById('tab-downloader').classList.add('hidden');
+      document.getElementById('tab-converter').classList.add('hidden');
+
+      const active = document.getElementById(`tab-btn-${name}`);
+      active.classList.remove('text-neutral-500');
+      active.classList.add('text-white', 'border-b-2', 'border-white');
+
+      document.getElementById(`tab-${name}`).classList.remove('hidden');
+    }
+
+    async function openCurrentFile() {
+      if (currentTaskId) {
+        try {
+          await fetch(`/api/open-file/${currentTaskId}`, { method: 'POST' });
+        } catch (e) {
+          console.error(e);
+        }
+      }
+    }
+
+    async function openFolder(selectCurrentFile = false) {
+      try {
+        const url = selectCurrentFile && currentTaskId 
+          ? `/api/open-folder?task_id=${currentTaskId}` 
+          : `/api/open-folder`;
+        await fetch(url, { method: 'POST' });
+      } catch (e) {
+        console.error(e);
+      }
+    }
+
+    async function handleFetch(e) {
+      if (e) e.preventDefault();
+      const url = document.getElementById('url-input').value.trim();
+      const err = document.getElementById('fetch-error');
+      const btn = document.getElementById('fetch-btn');
+
+      if (!url) return;
+      err.classList.add('hidden');
+      btn.disabled = true;
+      btn.innerText = 'Fetching...';
+
+      try {
+        const res = await fetch('/api/video-info', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ url })
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.detail || 'Fetch failed');
+
+        document.getElementById('video-title').innerText = data.title || '';
+        document.getElementById('video-uploader').innerText = data.uploader || '';
+
+        updateResolutionDropdown(data.resolutions);
+
+        document.getElementById('dl-progress').classList.add('hidden');
+        document.getElementById('dl-ready').classList.add('hidden');
+        document.getElementById('dl-btn').disabled = false;
+        document.getElementById('video-card').classList.remove('hidden');
+      } catch (ex) {
+        err.innerText = ex.message;
+        err.classList.remove('hidden');
+        document.getElementById('video-card').classList.add('hidden');
+      } finally {
+        btn.disabled = false;
+        btn.innerText = 'Fetch';
+      }
+    }
+
+    function setType(t) {
+      downloadType = t;
+      const v = document.getElementById('type-video');
+      const a = document.getElementById('type-audio');
+      const rg = document.getElementById('res-group');
+
+      if (t === 'video') {
+        v.className = "py-3.5 px-4 rounded-xl text-sm font-semibold border border-white bg-white text-black transition text-center";
+        a.className = "py-3.5 px-4 rounded-xl text-sm font-semibold border border-neutral-800 bg-neutral-950 text-neutral-400 hover:text-white hover:border-neutral-700 transition text-center";
+        rg.classList.remove('hidden');
+      } else {
+        a.className = "py-3.5 px-4 rounded-xl text-sm font-semibold border border-white bg-white text-black transition text-center";
+        v.className = "py-3.5 px-4 rounded-xl text-sm font-semibold border border-neutral-800 bg-neutral-950 text-neutral-400 hover:text-white hover:border-neutral-700 transition text-center";
+        rg.classList.add('hidden');
+      }
+    }
+
+    async function startDownload() {
+      const url = document.getElementById('url-input').value.trim();
+      const quality = document.getElementById('video-res').value;
+      const btn = document.getElementById('dl-btn');
+
+      btn.disabled = true;
+      document.getElementById('dl-progress').classList.remove('hidden');
+      document.getElementById('dl-ready').classList.add('hidden');
+
+      try {
+        const res = await fetch('/api/start-download', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ url, format: downloadType, quality })
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.detail || 'Download error');
+
+        currentTaskId = data.task_id;
+
+        if (pollTimer) clearInterval(pollTimer);
+        pollTimer = setInterval(async () => {
+          const r = await fetch(`/api/task-status/${data.task_id}`);
+          const task = await r.json();
+
+          const pct = task.progress || 0;
+          document.getElementById('dl-bar').style.width = `${pct}%`;
+          document.getElementById('dl-percent').innerText = `${pct}%`;
+
+          if (task.status === 'completed') {
+            clearInterval(pollTimer);
+            document.getElementById('dl-progress').classList.add('hidden');
+            
+            const displayName = task.display_name || task.filename || 'video.mp4';
+            document.getElementById('dl-name').innerText = displayName;
+
+            if (isCloud) {
+              const cloudBtn = document.getElementById('cloud-download-btn');
+              cloudBtn.href = `/api/get/${data.task_id}/${encodeURIComponent(displayName)}`;
+            }
+
+            document.getElementById('dl-ready').classList.remove('hidden');
+            btn.disabled = false;
+          } else if (task.status === 'error') {
+            clearInterval(pollTimer);
+            alert(task.error || 'Download failed');
+            btn.disabled = false;
+          }
+        }, 1000);
+      } catch (err) {
+        alert(err.message);
+        btn.disabled = false;
+      }
+    }
+
+    // Converter
+    function onDrag(e, active) {
+      e.preventDefault();
+      document.getElementById('dropzone').classList.toggle('border-neutral-500', active);
+    }
+    function onDrop(e) {
+      e.preventDefault();
+      onDrag(e, false);
+      if (e.dataTransfer.files.length) addFiles(Array.from(e.dataTransfer.files));
+    }
+    function onSelectFiles(e) {
+      if (e.target.files.length) addFiles(Array.from(e.target.files));
+    }
+    function addFiles(newFiles) {
+      files = files.concat(newFiles);
+      renderFiles();
+    }
+    function removeFile(i) {
+      files.splice(i, 1);
+      renderFiles();
+    }
+    function clearFiles() {
+      files = [];
+      renderFiles();
+    }
+    function renderFiles() {
+      const sec = document.getElementById('files-section');
+      const list = document.getElementById('file-list');
+      const count = document.getElementById('file-count');
+
+      if (!files.length) {
+        sec.classList.add('hidden');
+        return;
+      }
+      sec.classList.remove('hidden');
+      count.innerText = `${files.length} file${files.length > 1 ? 's' : ''}`;
+      list.innerHTML = '';
+
+      files.forEach((f, i) => {
+        list.innerHTML += `
+          <div class="flex justify-between items-center text-sm bg-neutral-950 border border-neutral-800 rounded-xl px-4 py-3">
+            <span class="truncate max-w-sm text-neutral-200">${f.name}</span>
+            <button onclick="removeFile(${i})" class="text-xs text-neutral-400 hover:text-white ml-3 font-medium">Remove</button>
+          </div>
+        `;
+      });
+    }
+
+    function onFormatChange() {
+      const fmt = document.getElementById('target-format').value;
+      const q = document.getElementById('opt-quality');
+      const b = document.getElementById('opt-bitrate');
+      const r = document.getElementById('opt-res');
+
+      q.classList.add('hidden');
+      b.classList.add('hidden');
+      r.classList.add('hidden');
+
+      if (['webp', 'png', 'jpg', 'ico', 'bmp', 'tiff'].includes(fmt)) {
+        q.classList.remove('hidden');
+      } else if (['mp3', 'wav', 'flac', 'aac', 'ogg', 'm4a'].includes(fmt)) {
+        b.classList.remove('hidden');
+      } else {
+        r.classList.remove('hidden');
+      }
+    }
+
+    async function startConvert() {
+      if (!files.length) return;
+      const btn = document.getElementById('convert-btn');
+      const ready = document.getElementById('convert-ready');
+      btn.disabled = true;
+      btn.innerText = 'Converting...';
+      ready.classList.add('hidden');
+
+      const fd = new FormData();
+      files.forEach(f => fd.append('files', f));
+      fd.append('target_ext', document.getElementById('target-format').value);
+      fd.append('quality', document.getElementById('input-quality').value);
+      fd.append('resolution', document.getElementById('input-res').value);
+      fd.append('audio_bitrate', document.getElementById('input-bitrate').value);
+
+      try {
+        const res = await fetch('/api/convert-media', { method: 'POST', body: fd });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.detail || 'Convert failed');
+
+        document.getElementById('convert-desc').innerText = data.filename;
+
+        if (isCloud && data.download_url) {
+          const cloudBtn = document.getElementById('convert-cloud-dl-btn');
+          cloudBtn.href = data.download_url;
+        }
+
+        ready.classList.remove('hidden');
+      } catch (err) {
+        alert(err.message);
+      } finally {
+        btn.disabled = false;
+        btn.innerText = 'Start Conversion';
+      }
+    }
+  </script>
+</body>
+</html>
