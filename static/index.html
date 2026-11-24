@@ -33,21 +33,30 @@
 <body class="bg-neutral-950 text-neutral-100 min-h-screen flex flex-col p-6 sm:p-12 antialiased selection:bg-white selection:text-black">
   <div class="max-w-3xl w-full mx-auto space-y-8">
 
-    <!-- Navigation Tabs -->
-    <nav class="flex border-b border-neutral-800 space-x-8 text-base">
+    <!-- Navigation Bar -->
+    <nav class="flex items-center justify-between border-b border-neutral-800 text-base">
+      <div class="flex space-x-8">
+        <button
+          id="tab-btn-downloader"
+          onclick="switchTab('downloader')"
+          class="tab-btn pb-4 text-white border-b-2 border-white font-semibold transition"
+        >
+          Download
+        </button>
+        <button
+          id="tab-btn-converter"
+          onclick="switchTab('converter')"
+          class="tab-btn pb-4 text-neutral-500 hover:text-neutral-300 font-semibold transition"
+        >
+          Convert
+        </button>
+      </div>
       <button
-        id="tab-btn-downloader"
-        onclick="switchTab('downloader')"
-        class="tab-btn pb-4 text-white border-b-2 border-white font-semibold transition"
+        id="shutdown-btn"
+        onclick="shutdownApp()"
+        class="pb-4 text-xs uppercase tracking-wider text-neutral-500 hover:text-neutral-300 transition font-medium cursor-pointer"
       >
-        Download
-      </button>
-      <button
-        id="tab-btn-converter"
-        onclick="switchTab('converter')"
-        class="tab-btn pb-4 text-neutral-500 hover:text-neutral-300 font-semibold transition"
-      >
-        Convert
+        Shut Down
       </button>
     </nav>
 
@@ -488,6 +497,7 @@
 
         if (isCloud) {
           // In Cloud mode: hide local folder controls, adapt to device downloads
+          document.getElementById('shutdown-btn')?.classList.add('hidden');
           document.getElementById('save-location-bar').classList.add('hidden');
           document.getElementById('local-open-file-btn').classList.add('hidden');
           document.getElementById('local-open-folder-btn').classList.add('hidden');
@@ -536,6 +546,26 @@
         }
       } catch (e) {
         alert('Invalid folder path');
+      }
+    }
+
+    async function shutdownApp() {
+      if (!confirm('Stop local server and free all resources?')) return;
+      try {
+        await fetch('/api/shutdown', { method: 'POST' });
+        document.body.innerHTML = `
+          <div class="min-h-screen flex items-center justify-center p-6 text-center">
+            <div class="space-y-3">
+              <h1 class="text-xl font-bold text-white tracking-tight">Server Stopped</h1>
+              <p class="text-sm text-neutral-400">All local resources have been freed. You can close this tab.</p>
+            </div>
+          </div>
+        `;
+        setTimeout(() => {
+          window.close();
+        }, 1200);
+      } catch (e) {
+        console.error(e);
       }
     }
 

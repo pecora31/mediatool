@@ -299,7 +299,25 @@ async def api_system_status():
         "download_dir": config.get_download_dir()
     }
 
+@app.post("/api/shutdown")
+async def api_shutdown():
+    if config.IS_CLOUD:
+        return {"success": False, "message": "Disabled on cloud"}
+    
+    def stop_server():
+        time.sleep(0.5)
+        os._exit(0)
+    
+    import threading
+    threading.Thread(target=stop_server, daemon=True).start()
+    return {"success": True, "message": "Server stopped"}
+
 if __name__ == "__main__":
-    import uvicorn
-    port = int(os.environ.get("PORT", 7860 if config.IS_CLOUD else 5000))
-    uvicorn.run("main:app", host="0.0.0.0", port=port, reload=False, log_config=None)
+    try:
+        import uvicorn
+        port = int(os.environ.get("PORT", 7860 if config.IS_CLOUD else 5000))
+        uvicorn.run(app, host="0.0.0.0", port=port, reload=False)
+    except Exception as e:
+        import traceback
+        with open(os.path.join(BASE_DIR, "crash.log"), "w", encoding="utf-8") as f:
+            f.write(traceback.format_exc())
