@@ -8,20 +8,36 @@ import config
 
 TASKS: Dict[str, Dict[str, Any]] = {}
 
+YOUTUBE_EXTRACTOR_ARGS = {
+    'youtube': {
+        'player_client': ['android', 'ios', 'web']
+    }
+}
+
+def normalize_url(url: str) -> str:
+    cleaned = url.strip()
+    shorts_match = re.search(r'youtube\.com/shorts/([a-zA-Z0-9_-]+)', cleaned)
+    if shorts_match:
+        video_id = shorts_match.group(1)
+        return f'https://www.youtube.com/watch?v={video_id}'
+    return cleaned
+
 def sanitize_filename(name: str) -> str:
     cleaned = re.sub(r'[\\/*?:"<>|,;]', '', name)
     cleaned = re.sub(r'\s+', ' ', cleaned).strip()
     return cleaned[:100] if cleaned else "video"
 
 def get_video_info(url: str) -> Dict[str, Any]:
+    target_url = normalize_url(url)
     ydl_opts = {
         'quiet': True,
         'no_warnings': True,
         'extract_flat': False,
         'noplaylist': True,
+        'extractor_args': YOUTUBE_EXTRACTOR_ARGS,
     }
     with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-        info = ydl.extract_info(url, download=False)
+        info = ydl.extract_info(target_url, download=False)
         if not info:
             raise ValueError("Unable to retrieve video information.")
 
@@ -34,7 +50,8 @@ def get_video_info(url: str) -> Dict[str, Any]:
         resolutions = set()
         for f in formats:
             height = f.get('height')
-            if height and isinstance(height, int) and height >= 144:
+            vcodec = f.get('vcodec')
+            if height and isinstance(height, int) and height >= 144 and vcodec != 'none':
                 resolutions.add(height)
 
         return {
@@ -46,6 +63,7 @@ def get_video_info(url: str) -> Dict[str, Any]:
         }
 
 def _run_download(task_id: str, url: str, format_choice: str, quality: str):
+    target_url = normalize_url(url)
     task = TASKS[task_id]
     task["status"] = "downloading"
     task["progress"] = 0
@@ -82,6 +100,7 @@ def _run_download(task_id: str, url: str, format_choice: str, quality: str):
         'noplaylist': True,
         'quiet': True,
         'no_warnings': True,
+        'extractor_args': YOUTUBE_EXTRACTOR_ARGS,
     }
 
     if format_choice == 'audio':
