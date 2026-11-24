@@ -312,6 +312,40 @@ async def api_shutdown():
     threading.Thread(target=stop_server, daemon=True).start()
     return {"success": True, "message": "Server stopped"}
 
+# Heartbeat & Auto-Shutdown Watchdog for Local mode
+SERVER_START_TIME = time.time()
+LAST_HEARTBEAT_TIME = time.time()
+HEARTBEAT_TIMEOUT_SECONDS = 15
+INITIAL_GRACE_PERIOD_SECONDS = 25
+
+def is_any_download_active() -> bool:
+    for task in downloader.TASKS.values():
+        if task.get("status") in ["downloading", "processing"]:
+            return True
+    return False
+
+def watchdog_loop():
+    if config.IS_CLOUD:
+        return
+    while True:
+        time.sleep(3)
+        now = time.time()
+        if (now - SERVER_START_TIME) < INITIAL_GRACE_PERIOD_SECONDS:
+            continue
+        if is_any_download_active():
+            continue
+        if (now - LAST_HEARTBEAT_TIME) > HEARTBEAT_TIMEOUT_SECONDS:
+            os._exit(0)
+
+import threading
+threading.Thread(target=watchdog_loop, daemon=True).start()
+
+@app.post("/api/heartbeat")
+async def api_heartbeat():
+    global LAST_HEARTBEAT_TIME
+    LAST_HEARTBEAT_TIME = time.time()
+    return {"status": "ok"}
+
 if __name__ == "__main__":
     try:
         import uvicorn

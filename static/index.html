@@ -508,11 +508,21 @@
           if (data.download_dir) {
             document.getElementById('save-path-input').value = data.download_dir;
           }
+          startHeartbeat();
         }
       } catch (e) {
         console.error(e);
       }
     });
+
+    function startHeartbeat() {
+      if (isCloud) return;
+      const sendBeat = () => {
+        fetch('/api/heartbeat', { method: 'POST' }).catch(() => {});
+      };
+      sendBeat();
+      setInterval(sendBeat, 5000);
+    }
 
     async function browseFolder() {
       const btn = document.getElementById('browse-btn');
